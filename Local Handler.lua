@@ -35,11 +35,11 @@ local InitialJump = game.StarterPlayer.CharacterJumpPower
 local MinimumSpeedAllowed = InitialSpeed - 15
 local MaximumSpeedAllowed = InitialSpeed * 2
 
-local MinimumJumpAllowed = InitialSpeed - 3
-local MaximumJumpAllowed = InitialSpeed * 2
+local MinimumJumpAllowed = InitialJump - 3
+local MaximumJumpAllowed = InitialJump * 2
 
 -- Loop is always running
--- Loop checks player for any possible hacks
+-- Loop checks Player for any possible hacks
 
 local Player = game.Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
@@ -48,9 +48,28 @@ local Humanoid = Character:WaitForChild("Humanoid")
 local EventsFolder = script.Parent.Parent.Events
 local ScriptsFolder = script.Parent.Parent.Scripts
 
-local PreviousPosition
+local PlayerPositionHistory = {}
+local ERROR_MARGIN = 3
+local function ValidatePlayerPosition()
+	local character = Player.Character
+	local data = PlayerPositionHistory[Player]
+	if (data and character) then
+		local root = character:FindFirstChild("HumanoidRootPart")
+		local currentPosition = root.Position
+		local lastPosition = data.Position
+		if (lastPosition) then
+			local deltaTime = os.clock() - data.Time
+			local studsTravelled = (currentPosition - lastPosition).Magnitude
+			if (studsTravelled > character:FindFirstChildOfClass("Humanoid").WalkSpeed * deltaTime + ERROR_MARGIN) then
+				root.Position = lastPosition
+			end
+		end
+		data.Position = currentPosition
+		data.Time = os.clock()
+	end
+end
 
-while wait(0.1) do
+while wait(0.5) do
 	
 	-- Testing for jump and speed hacks
 	
@@ -58,7 +77,7 @@ while wait(0.1) do
 		-- Player possible has hacks
 		if Humanoid.WalkSpeed > MaximumSpeedAllowed or Humanoid.WalkSpeed < MinimumSpeedAllowed then
 			-- Player is definatly Hacking
-			EventsFolder.SpeedHack:FireServer(false)
+			EventsFolder.SpeedHack:FireServer(Settings.PermBanHackers)
 		end
 	end
 	
@@ -66,19 +85,9 @@ while wait(0.1) do
 		-- Player possible has hacks
 		if Humanoid.JumpHeight > MaximumJumpAllowed or Humanoid.JumpHeight < MinimumJumpAllowed then
 			-- Player is definatly Hacking
-			EventsFolder.JumpHack:FireServer(false)
+			EventsFolder.JumpHack:FireServer(Settings.PermBanHackers)
 		end
 	end
 	
-	-- Testing for teleport hacks
-	
-	PreviousPosition = Character.PrimaryPart.Position
-	
-	local NewPos = PreviousPosition + Vector3.new(5,5,5)
-	
-	if Character.PrimaryPart.Position.Magnitude > NewPos.Magnitude and not Admins[Player.UserId] and Settings.TeleportCheck == true then
-		-- Player has traveled over 5 studs in less than 0.1 seconds
-		
-		EventsFolder.TeleportHack:FireServer(false)
-	end
+	ValidatePlayerPosition()
 end
